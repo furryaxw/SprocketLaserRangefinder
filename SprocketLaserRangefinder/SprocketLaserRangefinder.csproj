@@ -1,0 +1,130 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>SprocketLaserRangefinder</AssemblyName>
+    <RootNamespace>SprocketLaserRangefinder</RootNamespace>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PlatformTarget>x64</PlatformTarget>
+    <Version>0.1.0</Version>
+    <Description>Depth-based laser rangefinder and automatic ballistic elevation for Sprocket.</Description>
+    <Authors>Axw_0</Authors>
+    <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/furryaxw/SprocketLaserRangefinder</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/furryaxw/SprocketLaserRangefinder.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <SprocketGameRoot Condition="'$(SprocketGameRoot)' == '' and '$(SPROCKET_GAME_ROOT)' != ''">$(SPROCKET_GAME_ROOT)</SprocketGameRoot>
+    <SprocketGameRoot Condition="'$(SprocketGameRoot)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\..'))</SprocketGameRoot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="SprocketDepth">
+      <HintPath>$(SprocketGameRoot)\UserLibs\SprocketDepth.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="0Harmony">
+      <HintPath>$(SprocketGameRoot)\MelonLoader\net6\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppInterop.Runtime">
+      <HintPath>$(SprocketGameRoot)\MelonLoader\net6\Il2CppInterop.Runtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2Cppmscorlib">
+      <HintPath>$(SprocketGameRoot)\MelonLoader\Il2CppAssemblies\Il2Cppmscorlib.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="MelonLoader">
+      <HintPath>$(SprocketGameRoot)\MelonLoader\net6\MelonLoader.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Unity.Collections">
+      <HintPath>$(SprocketGameRoot)\MelonLoader\Il2CppAssemblies\Unity.Collections.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(SprocketGameRoot)\MelonLoader\Il2CppAssemblies\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>$(SprocketGameRoot)\MelonLoader\Il2CppAssemblies\UnityEngine.IMGUIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>$(SprocketGameRoot)\MelonLoader\Il2CppAssemblies\UnityEngine.TextRenderingModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>$(SprocketGameRoot)\MelonLoader\Il2CppAssemblies\UnityEngine.PhysicsModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Unity.RenderPipelines.Core.Runtime">
+      <HintPath>$(SprocketGameRoot)\MelonLoader\Il2CppAssemblies\Unity.RenderPipelines.Core.Runtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Unity.RenderPipelines.HighDefinition.Runtime">
+      <HintPath>$(SprocketGameRoot)\MelonLoader\Il2CppAssemblies\Unity.RenderPipelines.HighDefinition.Runtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppSprocket.DamageModelFramework">
+      <HintPath>$(SprocketGameRoot)\MelonLoader\Il2CppAssemblies\Il2CppSprocket.DamageModelFramework.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppSprocket.Core">
+      <HintPath>$(SprocketGameRoot)\MelonLoader\Il2CppAssemblies\Il2CppSprocket.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppSprocket.Blueprints">
+      <HintPath>$(SprocketGameRoot)\MelonLoader\Il2CppAssemblies\Il2CppSprocket.Blueprints.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppSprocket.Projectiles">
+      <HintPath>$(SprocketGameRoot)\MelonLoader\Il2CppAssemblies\Il2CppSprocket.Projectiles.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppSprocket.VehicleControl">
+      <HintPath>$(SprocketGameRoot)\MelonLoader\Il2CppAssemblies\Il2CppSprocket.VehicleControl.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppSprocket.VehicleController">
+      <HintPath>$(SprocketGameRoot)\MelonLoader\Il2CppAssemblies\Il2CppSprocket.VehicleController.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppSprocket.VehicleFramework">
+      <HintPath>$(SprocketGameRoot)\MelonLoader\Il2CppAssemblies\Il2CppSprocket.VehicleFramework.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppSprocket.CrewTasks">
+      <HintPath>$(SprocketGameRoot)\MelonLoader\Il2CppAssemblies\Il2CppSprocket.CrewTasks.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppSprocket.Vehicles.Cannons">
+      <HintPath>$(SprocketGameRoot)\MelonLoader\Il2CppAssemblies\Il2CppSprocket.Vehicles.Cannons.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppSprocket.Vehicles.Weapons">
+      <HintPath>$(SprocketGameRoot)\MelonLoader\Il2CppAssemblies\Il2CppSprocket.Vehicles.Weapons.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppSprocket.LayingDriveDesigner">
+      <HintPath>$(SprocketGameRoot)\MelonLoader\Il2CppAssemblies\Il2CppSprocket.LayingDriveDesigner.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppSprocket.WeaponFramework">
+      <HintPath>$(SprocketGameRoot)\MelonLoader\Il2CppAssemblies\Il2CppSprocket.WeaponFramework.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="PostBuild"
+          AfterTargets="PostBuildEvent"
+          Condition="'$(SkipModDeploy)' != 'true'">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(SprocketGameRoot)\Mods" />
+  </Target>
+
+</Project>
