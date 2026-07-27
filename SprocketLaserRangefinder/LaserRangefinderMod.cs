@@ -21,7 +21,7 @@ using UnityEngine.Rendering.HighDefinition;
     typeof(SprocketLaserRangefinder.SprocketLaserRangefinderMod),
     "Sprocket Laser Rangefinder",
     "0.1.1",
-    "Sk1p2dar")]
+    "furryAxw")]
 [assembly: MelonGame("HD", "Sprocket")]
 
 namespace SprocketLaserRangefinder
@@ -103,7 +103,7 @@ namespace SprocketLaserRangefinder
             try
             {
                 harmony = new HarmonyLib.Harmony(
-                    "Sk1p2dar.SprocketLaserRangefinder");
+                    "furryAxw.SprocketLaserRangefinder");
                 harmony.PatchAll(typeof(SprocketLaserRangefinderMod).Assembly);
             }
             catch (Exception exception)
