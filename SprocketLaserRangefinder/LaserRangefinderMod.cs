@@ -20,7 +20,7 @@ using UnityEngine.Rendering.HighDefinition;
 [assembly: MelonInfo(
     typeof(SprocketLaserRangefinder.SprocketLaserRangefinderMod),
     "Sprocket Laser Rangefinder",
-    "0.1.0-prototype",
+    "0.1.1",
     "Sk1p2dar")]
 [assembly: MelonGame("HD", "Sprocket")]
 
@@ -87,9 +87,8 @@ namespace SprocketLaserRangefinder
         // Relative angular table; no ranged world point or target is retained.
         private Quaternion localAngularTable = Quaternion.identity;
         private bool aimCommandValid;
-        private Vector3 aimCommandDirection;
-        private bool scopeAimDirectionValid;
-        private Vector3 scopeAimDirection;
+        private bool operatorAimRayValid;
+        private Ray operatorAimRay;
         private bool nativeAimInjectionPrepared;
         private bool leadCompensationEnabled;
         private GUIStyle? hudLabelStyle;
@@ -118,7 +117,7 @@ namespace SprocketLaserRangefinder
 
             depthRenderer = new HdrpDepthMapRenderer(MaximumRangeMeters);
             LoggerInstance.Msg(
-                "Sprocket Laser Rangefinder 0.1.0 initialized.");
+                "Sprocket Laser Rangefinder 0.1.1 initialized.");
             LoggerInstance.Msg(
                 "[SLRF] depth-only scalar range; no ranged world point; " +
                 "ballistics=live cannon data + native curves + semi-implicit Euler");
@@ -241,7 +240,9 @@ namespace SprocketLaserRangefinder
             return true;
         }
 
-        internal void PrepareAutomaticAim(VehicleController candidate)
+        internal void PrepareAutomaticAim(
+            VehicleController candidate,
+            Ray inputAimRay)
         {
             if (controller == null ||
                 candidate == null ||
@@ -250,9 +251,13 @@ namespace SprocketLaserRangefinder
                 return;
             }
 
+            operatorAimRayValid =
+                IsFinite(inputAimRay.origin) &&
+                IsFinite(inputAimRay.direction) &&
+                inputAimRay.direction.sqrMagnitude > 1e-8f;
+            operatorAimRay = inputAimRay;
             nativeAimInjectionPrepared = false;
             aimCommandValid = false;
-            scopeAimDirectionValid = false;
 
             if (!rangeValid ||
                 candidate.ScopeControl == null ||
@@ -261,24 +266,17 @@ namespace SprocketLaserRangefinder
                 return;
             }
 
-            bool opticalRayValid = TryGetCurrentScopeRay(
-                out _,
-                out Ray opticalRay);
-            if (opticalRayValid)
-            {
-                scopeAimDirection = opticalRay.direction.normalized;
-                scopeAimDirectionValid = true;
-            }
             if ((!solutionValid ||
                  Time.unscaledTime >= nextSolutionRefreshTime) &&
-                opticalRayValid)
+                operatorAimRayValid)
             {
                 nextSolutionRefreshTime =
                     Time.unscaledTime + BallisticRefreshSeconds;
-                RefreshBallisticSolution(opticalRay);
+                RefreshBallisticSolution(operatorAimRay);
             }
 
-            nativeAimInjectionPrepared = solutionValid && opticalRayValid;
+            nativeAimInjectionPrepared =
+                solutionValid && operatorAimRayValid;
         }
 
         internal void InjectNativeAimPosition(
@@ -287,7 +285,7 @@ namespace SprocketLaserRangefinder
         {
             if (!nativeAimInjectionPrepared ||
                 !solutionValid ||
-                !scopeAimDirectionValid ||
+                !operatorAimRayValid ||
                 layer == null ||
                 !IsControlledGunLayer(layer))
             {
@@ -310,17 +308,17 @@ namespace SprocketLaserRangefinder
                 return;
 
             if (!TryCreateLookFrame(
-                    scopeAimDirection,
-                    out Quaternion opticalFrame))
+                    operatorAimRay.direction,
+                    out Quaternion commandLosFrame))
             {
                 return;
             }
 
-            // The cached delta already contains the optical-to-muzzle
-            // geometry. Use the original native position for distance only;
-            // reusing its layer-pivot direction would count parallax twice.
+            // UpdateControl's aim ray is the stable operator LOS. Camera
+            // Transform.forward follows the weapon rig on some vehicles and
+            // would feed the previous command back into the next one.
             Vector3 commandedDirection =
-                (opticalFrame *
+                (commandLosFrame *
                  localAngularTable *
                  Vector3.forward).normalized;
             if (!IsFinite(commandedDirection) ||
@@ -330,9 +328,6 @@ namespace SprocketLaserRangefinder
             }
 
             position = pivotPosition + commandedDirection * distance;
-
-            if (!aimCommandValid || IsElevationTarget(target))
-                aimCommandDirection = commandedDirection;
             aimCommandValid = true;
         }
 
@@ -356,37 +351,6 @@ namespace SprocketLaserRangefinder
 
             if (!aimCommandValid)
                 lastStatus = "No native gun-layer target";
-        }
-
-        internal bool TryMaintainAngularScopeOffset(VehicleController candidate)
-        {
-            if (!rangeValid ||
-                !solutionValid ||
-                !aimCommandValid ||
-                !scopeAimDirectionValid ||
-                controller == null ||
-                candidate == null ||
-                candidate.Pointer != controller.Pointer ||
-                candidate.ScopeControl == null ||
-                !candidate.ScopeControl.Scoped)
-            {
-                return false;
-            }
-
-            Camera? camera = candidate.ScopeControl.Camera;
-            if (camera == null)
-                return false;
-
-            Vector3 opticalDirection = scopeAimDirection.normalized;
-            if (opticalDirection.sqrMagnitude <= 1e-8f)
-                return false;
-
-            // Rebuilt from current camera pose every frame. This value is not
-            // retained and therefore does not track a map/world coordinate.
-            Vector3 transientScopePoint =
-                camera.transform.position + opticalDirection * rangedDistance;
-            candidate.scopeControl.Update(transientScopePoint);
-            return true;
         }
 
         private void RefreshControllerAndBindings()
@@ -512,9 +476,8 @@ namespace SprocketLaserRangefinder
             solutionValid = false;
             localAngularTable = Quaternion.identity;
             aimCommandValid = false;
-            aimCommandDirection = default;
-            scopeAimDirectionValid = false;
-            scopeAimDirection = default;
+            operatorAimRayValid = false;
+            operatorAimRay = default;
             nativeAimInjectionPrepared = false;
             depthSampleRequested = true;
             stableFrameWaitLogged = false;
@@ -744,7 +707,7 @@ namespace SprocketLaserRangefinder
             return true;
         }
 
-        private void RefreshBallisticSolution(Ray opticalRay)
+        private void RefreshBallisticSolution(Ray commandLosRay)
         {
             if (!currentModelValid ||
                 currentCannon == null ||
@@ -762,7 +725,7 @@ namespace SprocketLaserRangefinder
                 : Vector3.zero;
             solutionValid = BallisticSolver.TrySolveLowArc(
                 currentModel,
-                opticalRay,
+                commandLosRay,
                 rangedDistance,
                 muzzlePosition,
                 muzzleVelocity,
@@ -775,10 +738,10 @@ namespace SprocketLaserRangefinder
                 return;
             }
 
-            Vector3 opticalDirection = opticalRay.direction.normalized;
+            Vector3 commandLosDirection = commandLosRay.direction.normalized;
             if (!TryCreateLookFrame(
-                    opticalDirection,
-                    out Quaternion opticalFrame) ||
+                    commandLosDirection,
+                    out Quaternion commandLosFrame) ||
                 !TryCreateLookFrame(
                     newSolution.Direction,
                     out Quaternion solutionFrame))
@@ -790,7 +753,7 @@ namespace SprocketLaserRangefinder
 
             solution = newSolution;
             localAngularTable =
-                Quaternion.Inverse(opticalFrame) * solutionFrame;
+                Quaternion.Inverse(commandLosFrame) * solutionFrame;
             lastStatus =
                 $"Table {solution.ElevationCorrectionDegrees:+0.00;-0.00;0.00} deg";
 
@@ -847,9 +810,8 @@ namespace SprocketLaserRangefinder
             solutionValid = false;
             localAngularTable = Quaternion.identity;
             aimCommandValid = false;
-            aimCommandDirection = default;
-            scopeAimDirectionValid = false;
-            scopeAimDirection = default;
+            operatorAimRayValid = false;
+            operatorAimRay = default;
             nativeAimInjectionPrepared = false;
             nextSolutionRefreshTime = 0.0f;
             lastStatus = $"Range {distance:F1} m; applying table";
@@ -864,9 +826,8 @@ namespace SprocketLaserRangefinder
             solution = default;
             localAngularTable = Quaternion.identity;
             aimCommandValid = false;
-            aimCommandDirection = default;
-            scopeAimDirectionValid = false;
-            scopeAimDirection = default;
+            operatorAimRayValid = false;
+            operatorAimRay = default;
             nativeAimInjectionPrepared = false;
             depthSampleRequested = false;
             stableFrameWaitLogged = false;
@@ -909,7 +870,8 @@ namespace SprocketLaserRangefinder
             solution = default;
             localAngularTable = Quaternion.identity;
             aimCommandValid = false;
-            aimCommandDirection = default;
+            operatorAimRayValid = false;
+            operatorAimRay = default;
             nativeAimInjectionPrepared = false;
             nextSolutionRefreshTime = 0.0f;
             lastLoggedSolutionGeneration = -1;
@@ -940,18 +902,6 @@ namespace SprocketLaserRangefinder
                    depthSampleRequested ||
                    (depthReadbackInFlight &&
                     depthReadbackRangeGeneration == rangeRequestGeneration);
-        }
-
-        private static bool IsElevationTarget(IAimable target)
-        {
-            try
-            {
-                return target.TryCast<LayingDriveBehaviour>() != null;
-            }
-            catch
-            {
-                return false;
-            }
         }
 
         private bool IsControlledGunLayer(GunLayer candidate)
@@ -1048,10 +998,11 @@ namespace SprocketLaserRangefinder
     [HarmonyPatch(typeof(VehicleController), nameof(VehicleController.UpdateControl))]
     internal static class LaserRangefinderAimPatch
     {
-        private static void Prefix(VehicleController __instance)
+        private static void Prefix(VehicleController __instance, Ray __1)
         {
             SprocketLaserRangefinderMod.Instance?.PrepareAutomaticAim(
-                __instance);
+                __instance,
+                __1);
         }
 
         private static void Postfix(VehicleController __instance)
@@ -1072,15 +1023,4 @@ namespace SprocketLaserRangefinder
         }
     }
 
-    [HarmonyPatch(typeof(VehicleController), nameof(VehicleController.LateControlUpdate))]
-    internal static class LaserRangefinderScopePatch
-    {
-        private static bool Prefix(VehicleController __instance)
-        {
-            SprocketLaserRangefinderMod? instance =
-                SprocketLaserRangefinderMod.Instance;
-            return instance == null ||
-                   !instance.TryMaintainAngularScopeOffset(__instance);
-        }
-    }
 }
