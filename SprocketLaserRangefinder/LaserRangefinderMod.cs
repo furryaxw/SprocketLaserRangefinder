@@ -20,7 +20,7 @@ using UnityEngine.Rendering.HighDefinition;
 [assembly: MelonInfo(
     typeof(SprocketLaserRangefinder.SprocketLaserRangefinderMod),
     "Sprocket Laser Rangefinder",
-    "0.1.1",
+    "0.1.2",
     "furryAxw")]
 [assembly: MelonGame("HD", "Sprocket")]
 
@@ -117,7 +117,7 @@ namespace SprocketLaserRangefinder
 
             depthRenderer = new HdrpDepthMapRenderer(MaximumRangeMeters);
             LoggerInstance.Msg(
-                "Sprocket Laser Rangefinder 0.1.1 initialized.");
+                "Sprocket Laser Rangefinder 0.1.2 initialized.");
             LoggerInstance.Msg(
                 "[SLRF] depth-only scalar range; no ranged world point; " +
                 "ballistics=live cannon data + native curves + semi-implicit Euler");

@@ -23,9 +23,9 @@
 
 1. 安装与游戏版本匹配的 MelonLoader。
 2. 将 `SprocketLaserRangefinder.dll` 放入游戏根目录的 `Mods` 文件夹。
-3. 将 [`SprocketDepth.dll`](https://github.com/furryaxw/SprocketDepth) 放入游戏根目录的 `UserLibs` 文件夹。
+3. 将 [`SprocketDepth.dll`](https://github.com/furryaxw/SprocketDepth/releases/latest) `v0.1.1` 或更高版本放入游戏根目录的 `UserLibs` 文件夹。
 
-当前目标环境为 Sprocket `0.2.53.1`、MelonLoader `0.7.2/net6` 和 Windows D3D11。
+当前目标环境为 Sprocket `0.2.53.2`、MelonLoader `0.7.2/net6` 和 Windows D3D11。
 
 ## 构建
 
