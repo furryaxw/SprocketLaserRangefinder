@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.InteropServices;
 using System.Text;
 using HarmonyLib;
 using Il2CppInterop.Runtime;
@@ -16,13 +15,15 @@ using SprocketDepth;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.HighDefinition;
+using SprocketModAPI;
 
 [assembly: MelonInfo(
     typeof(SprocketLaserRangefinder.SprocketLaserRangefinderMod),
     "Sprocket Laser Rangefinder",
-    "0.1.2",
+    "0.1.3",
     "furryAxw")]
 [assembly: MelonGame("HD", "Sprocket")]
+[assembly: MelonAdditionalDependencies("SprocketModAPI")]
 
 namespace SprocketLaserRangefinder
 {
@@ -30,17 +31,11 @@ namespace SprocketLaserRangefinder
     {
         private const string DepthPassName =
             "Sprocket Laser Rangefinder Depth Sampler";
-        private const int VirtualKeyRange = 0xA2; // VK_LCONTROL
-        private const int VirtualKeyClear = 0x5A; // Z
-        private const int VirtualKeyLeadToggle = 0x4C; // L
         private const float MinimumRangeMeters = 20.0f;
         private const float MaximumRangeMeters = 5000.0f;
         private const float BallisticRefreshSeconds = 0.05f;
         private const float ControllerRefreshSeconds = 0.50f;
         private const float MaximumDepthFrameRotationDegrees = 0.20f;
-
-        [DllImport("user32.dll")]
-        private static extern short GetKeyState(int virtualKey);
 
         internal static SprocketLaserRangefinderMod? Instance { get; private set; }
 
@@ -58,9 +53,6 @@ namespace SprocketLaserRangefinder
         private BallisticModel currentModel;
         private bool currentModelValid;
 
-        private bool rangeKeyWasDown;
-        private bool clearKeyWasDown;
-        private bool leadKeyWasDown;
         private bool scopeWasActive;
         private bool depthPrimed;
         private bool depthSampleRequested;
@@ -96,6 +88,9 @@ namespace SprocketLaserRangefinder
         private float nextControllerRefreshTime;
         private int lastLoggedSolutionGeneration = -1;
         private string lastStatus = "Press Left Ctrl while scoped to range";
+        private IInputActionHandle? rangeAction;
+        private IInputActionHandle? clearAction;
+        private IInputActionHandle? leadAction;
 
         public override void OnInitializeMelon()
         {
@@ -116,8 +111,17 @@ namespace SprocketLaserRangefinder
             }
 
             depthRenderer = new HdrpDepthMapRenderer(MaximumRangeMeters);
+            if (SprocketApi.TryGetService<IInputService>(out IInputService? input))
+            {
+                rangeAction = input!.RegisterAction(new ModActionDefinition { ModId = "sprocket-laser-rangefinder", ActionId = "range", DisplayName = "Range", Description = "Measure range while scoped", DefaultPrimary = new KeyChord("<Keyboard>/leftCtrl"), Contexts = InputContextMask.Gameplay, Gate = IsScopeActive });
+                clearAction = input.RegisterAction(new ModActionDefinition { ModId = "sprocket-laser-rangefinder", ActionId = "clear", DisplayName = "Clear range", DefaultPrimary = new KeyChord("<Keyboard>/z"), Contexts = InputContextMask.Gameplay, Gate = HasActiveRangeState });
+                leadAction = input.RegisterAction(new ModActionDefinition { ModId = "sprocket-laser-rangefinder", ActionId = "lead", DisplayName = "Toggle lead", DefaultPrimary = new KeyChord("<Keyboard>/l"), Contexts = InputContextMask.Gameplay, Gate = IsScopeActive });
+                rangeAction.Pressed += RequestRange;
+                clearAction.Pressed += () => { ClearRange("Range cleared manually"); LoggerInstance.Msg("[SLRF] range-cleared manual"); };
+                leadAction.Pressed += ToggleLeadCompensation;
+            }
             LoggerInstance.Msg(
-                "Sprocket Laser Rangefinder 0.1.2 initialized.");
+                "Sprocket Laser Rangefinder 0.1.3 initialized.");
             LoggerInstance.Msg(
                 "[SLRF] depth-only scalar range; no ranged world point; " +
                 "ballistics=live cannon data + native curves + semi-implicit Euler");
@@ -126,24 +130,6 @@ namespace SprocketLaserRangefinder
         public override void OnUpdate()
         {
             RefreshControllerAndBindings();
-
-            bool rangeDown = IsKeyDown(VirtualKeyRange);
-            if (rangeDown && !rangeKeyWasDown)
-                RequestRange();
-            rangeKeyWasDown = rangeDown;
-
-            bool clearDown = IsKeyDown(VirtualKeyClear);
-            if (clearDown && !clearKeyWasDown && HasActiveRangeState())
-            {
-                ClearRange("Range cleared manually");
-                LoggerInstance.Msg("[SLRF] range-cleared manual");
-            }
-            clearKeyWasDown = clearDown;
-
-            bool leadDown = IsKeyDown(VirtualKeyLeadToggle);
-            if (leadDown && !leadKeyWasDown && IsScopeActive())
-                ToggleLeadCompensation();
-            leadKeyWasDown = leadDown;
 
             TryRefreshCurrentCannon();
         }
@@ -193,6 +179,7 @@ namespace SprocketLaserRangefinder
             depthRenderer = null;
             harmony?.UnpatchSelf();
             harmony = null;
+            rangeAction?.Dispose(); clearAction?.Dispose(); leadAction?.Dispose();
             Instance = null;
         }
 
@@ -888,11 +875,6 @@ namespace SprocketLaserRangefinder
             return controller != null &&
                    controller.ScopeControl != null &&
                    controller.ScopeControl.Scoped;
-        }
-
-        private static bool IsKeyDown(int virtualKey)
-        {
-            return (GetKeyState(virtualKey) & 0x8000) != 0;
         }
 
         private bool HasActiveRangeState()

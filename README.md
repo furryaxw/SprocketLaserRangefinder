@@ -18,12 +18,14 @@
 - `L`：开关载车运动补偿，默认关闭。
 
 退出炮镜后会保留测距和装表结果；切换场景时会清除。`L` 只补偿开火车辆自身的运动，不会跟踪目标，也不会计算移动目标提前量。
+可在游戏设置的 Keymapping 页面打开 `MOD KEYBINDINGS`，修改上述三个按键。
 
 ## 安装
 
 1. 安装与游戏版本匹配的 MelonLoader。
 2. 将 `SprocketLaserRangefinder.dll` 放入游戏根目录的 `Mods` 文件夹。
-3. 将 [`SprocketDepth.dll`](https://github.com/furryaxw/SprocketDepth/releases/latest) `v0.1.1` 或更高版本放入游戏根目录的 `UserLibs` 文件夹。
+3. 将 [`SprocketModAPI.dll`](https://github.com/furryaxw/SprocketModAPI/releases/latest) `v0.1.0` 或更高版本放入游戏根目录的 `Mods` 文件夹。
+4. 将 [`SprocketDepth.dll`](https://github.com/furryaxw/SprocketDepth/releases/latest) `v0.1.1` 或更高版本放入游戏根目录的 `UserLibs` 文件夹。
 
 当前目标环境为 Sprocket `0.2.53.2`、MelonLoader `0.7.2/net6` 和 Windows D3D11。
 
@@ -34,6 +36,7 @@
 ```text
 G:\Sprocket\
 ├── MelonLoader\
+├── Mods\SprocketModAPI.dll
 ├── UserLibs\SprocketDepth.dll
 └── mod\SprocketLaserRangefinder\
 ```
