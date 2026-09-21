@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using System.Text;
 using HarmonyLib;
 using Il2CppInterop.Runtime;
@@ -20,10 +21,17 @@ using SprocketModAPI;
 [assembly: MelonInfo(
     typeof(SprocketLaserRangefinder.SprocketLaserRangefinderMod),
     "Sprocket Laser Rangefinder",
-    "0.1.3",
+    "0.1.4",
     "furryAxw")]
 [assembly: MelonGame("HD", "Sprocket")]
-[assembly: MelonAdditionalDependencies("SprocketModAPI")]
+[assembly: MelonAdditionalDependencies("SprocketModAPI", "SprocketDepth")]
+[assembly: AssemblyMetadata("Sprocket.Mod.Id", "furryaxw.sprocket-laser-rangefinder")]
+[assembly: AssemblyMetadata("Sprocket.Mod.DisplayName", "Sprocket Laser Rangefinder")]
+[assembly: AssemblyMetadata("Sprocket.Mod.Description", "Laser rangefinder and automatic ballistic sight for Sprocket.")]
+[assembly: AssemblyMetadata("Sprocket.Mod.Authors", "furryAxw")]
+[assembly: AssemblyMetadata("Sprocket.Mod.Repository", "furryaxw/SprocketLaserRangefinder")]
+[assembly: AssemblyMetadata("Sprocket.Mod.Category", "utility")]
+[assembly: AssemblyMetadata("Sprocket.Mod.License", "GPL-3.0-only")]
 
 namespace SprocketLaserRangefinder
 {
@@ -87,7 +95,8 @@ namespace SprocketLaserRangefinder
         private float nextSolutionRefreshTime;
         private float nextControllerRefreshTime;
         private int lastLoggedSolutionGeneration = -1;
-        private string lastStatus = "Press Left Ctrl while scoped to range";
+        private string lastStatus = "";
+        private IModConfigRegistration? configPage;
         private IInputActionHandle? rangeAction;
         private IInputActionHandle? clearAction;
         private IInputActionHandle? leadAction;
@@ -110,18 +119,43 @@ namespace SprocketLaserRangefinder
                 return;
             }
 
+            if (SprocketApi.TryGetService<IModConfigService>(out IModConfigService? config) && config != null)
+            {
+                try
+                {
+                    configPage = config.Register(new ModConfigDefinition
+                    {
+                        DisplayName = "Sprocket Laser Rangefinder",
+                        Sections = new[] { new ModConfigSectionDefinition { Id = "ranging", Title = "Ranging" } },
+                        // 只暴露 lead-compensation：其余量（测距上下限、弹道刷新）不对外暴露。
+                        Entries = new[]
+                        {
+                            ModConfigEntryDefinition.Toggle("lead-compensation", "Lead compensation on by default", false, sectionId: "ranging"),
+                        },
+                    });
+                    leadCompensationEnabled = configPage.GetBool("lead-compensation");
+                    LoggerInstance.Msg($"[SLRF] config page registered entries={configPage.Snapshot.Entries.Count}");
+                }
+                catch (Exception exception)
+                {
+                    LoggerInstance.Warning($"[SLRF] config registration failed: {exception.Message}");
+                    configPage = null;
+                }
+            }
+
             depthRenderer = new HdrpDepthMapRenderer(MaximumRangeMeters);
             if (SprocketApi.TryGetService<IInputService>(out IInputService? input))
             {
-                rangeAction = input!.RegisterAction(new ModActionDefinition { ModId = "sprocket-laser-rangefinder", ActionId = "range", DisplayName = "Range", Description = "Measure range while scoped", DefaultPrimary = new KeyChord("<Keyboard>/leftCtrl"), Contexts = InputContextMask.Gameplay, Gate = IsScopeActive });
-                clearAction = input.RegisterAction(new ModActionDefinition { ModId = "sprocket-laser-rangefinder", ActionId = "clear", DisplayName = "Clear range", DefaultPrimary = new KeyChord("<Keyboard>/z"), Contexts = InputContextMask.Gameplay, Gate = HasActiveRangeState });
-                leadAction = input.RegisterAction(new ModActionDefinition { ModId = "sprocket-laser-rangefinder", ActionId = "lead", DisplayName = "Toggle lead", DefaultPrimary = new KeyChord("<Keyboard>/l"), Contexts = InputContextMask.Gameplay, Gate = IsScopeActive });
+                rangeAction = input!.RegisterAction(new ModActionDefinition { ActionId = "range", DisplayName = "Range", Description = "Measure range while scoped", DefaultPrimary = new KeyChord("<Keyboard>/leftCtrl"), Contexts = InputContextMask.Gameplay, Gate = IsScopeActive });
+                clearAction = input.RegisterAction(new ModActionDefinition { ActionId = "clear", DisplayName = "Clear range", DefaultPrimary = new KeyChord("<Keyboard>/z"), Contexts = InputContextMask.Gameplay, Gate = HasActiveRangeState });
+                leadAction = input.RegisterAction(new ModActionDefinition { ActionId = "lead", DisplayName = "Toggle lead", DefaultPrimary = new KeyChord("<Keyboard>/l"), Contexts = InputContextMask.Gameplay, Gate = IsScopeActive });
                 rangeAction.Pressed += RequestRange;
                 clearAction.Pressed += () => { ClearRange("Range cleared manually"); LoggerInstance.Msg("[SLRF] range-cleared manual"); };
                 leadAction.Pressed += ToggleLeadCompensation;
+                RefreshRangeHint();
             }
             LoggerInstance.Msg(
-                "Sprocket Laser Rangefinder 0.1.3 initialized.");
+                $"[SLRF] {Info.Name} {Info.Version} initialized.");
             LoggerInstance.Msg(
                 "[SLRF] depth-only scalar range; no ranged world point; " +
                 "ballistics=live cannon data + native curves + semi-implicit Euler");
@@ -206,9 +240,6 @@ namespace SprocketLaserRangefinder
                 return true;
             }
 
-            if (depthSampleRequested && depthPrimed && !depthReadbackInFlight)
-                TryBeginDepthReadback();
-
             bool recorded = depthRenderer.TryRecord(
                 context,
                 DepthMapOutput.TextureOnly);
@@ -216,6 +247,8 @@ namespace SprocketLaserRangefinder
             {
                 depthPrimed = true;
                 CaptureDepthFrameMetadata();
+                if (depthSampleRequested && !depthReadbackInFlight)
+                    TryBeginDepthReadback();
             }
             else
             {
@@ -820,6 +853,13 @@ namespace SprocketLaserRangefinder
             stableFrameWaitLogged = false;
             nextSolutionRefreshTime = 0.0f;
             lastStatus = reason;
+        }
+
+        private void RefreshRangeHint()
+        {
+            string range = rangeAction?.Primary.DisplayName ?? "Range";
+            string clear = clearAction?.Primary.DisplayName ?? "Clear";
+            lastStatus = $"Press {range} while scoped to range (clear: {clear})";
         }
 
         private void BuildHudText()
