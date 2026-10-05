@@ -1,37 +1,51 @@
 # SprocketLaserRangefinder
 
-适用于《Sprocket》的 BepInEx 6（IL2CPP）激光测距与自动装表原型模组。它读取炮镜准星处的距离和当前火炮数据，计算低伸弹道，并通过游戏原生火炮控制链抬高炮管。
+[中文](README.zh.md) | **English**
 
-## 功能
+A prototype BepInEx 6 (IL2CPP) laser ranging and automatic sight-setting mod for
+Sprocket. It reads the distance at the sight reticle and the current cannon data,
+computes a flat trajectory, and raises the barrel through the game's native cannon
+control chain.
 
-- 使用 `SprocketDepth` 获取炮镜准星中心的距离。
-- 有效测距范围为 20 米至深度纹理上限（当前约 5000 米）。
-- 从游戏中读取当前火炮、炮弹、炮口初速、重力和阻力曲线等数据。
-- 按照 Sprocket 的弹道模型计算低伸解、装表角和飞行时间。
-- 将角度修正注入原生 `GunLayer` 瞄准流程，保留游戏的转速、加速度、射界、损伤和乘员效率限制。
-- 在炮镜上方中央显示距离、装表角、飞行时间和载车运动补偿状态。
+## Features
 
-## 按键
+- Uses `SprocketDepth` to get the distance at the centre of the sight reticle.
+- Effective ranging range is 20 metres up to the depth texture limit (currently about
+  5000 metres).
+- Reads the current cannon, shell, muzzle velocity, gravity, and drag curve data from the game.
+- Computes the flat-trajectory solution, sight setting angle, and time of flight using
+  Sprocket's ballistics model.
+- Injects the angle correction into the native `GunLayer` aiming process, preserving the
+  game's rotation speed, acceleration, firing arc, damage, and crew efficiency limits.
+- Displays the range, sight setting angle, time of flight, and vehicle motion compensation
+  state at the top centre of the sight.
 
-- 左 `Ctrl`：测距并自动装表。
-- `Z`：清除当前测距和装表结果。
-- `L`：开关载车运动补偿，默认关闭。
+## Key bindings
 
-退出炮镜后会保留测距和装表结果；切换场景时会清除。`L` 只补偿开火车辆自身的运动，不会跟踪目标，也不会计算移动目标提前量。
-可在游戏设置的 Keymapping 页面打开 `MOD KEYBINDINGS`，修改上述三个按键。
+- Left `Ctrl`: range and set the sight automatically.
+- `Z`: clear the current range and sight setting.
+- `L`: toggle vehicle motion compensation, off by default.
 
-## 安装
+The range and sight setting are kept after you leave the sight and are cleared when the
+scene changes. `L` only compensates for the motion of the firing vehicle itself; it does
+not track targets and does not compute lead for moving targets.
+You can open `MOD KEYBINDINGS` on the Keymapping page in the game settings to change
+these three key bindings.
 
-1. 安装与游戏版本匹配的 BepInEx 6（IL2CPP，.NET 6）。
-2. 将 `SprocketLaserRangefinder.dll` 放入 `BepInEx\plugins`。
-3. 将 [`SprocketModAPI.dll`](https://github.com/furryaxw/SprocketModAPI/releases/latest) `v1.0.0` 或更高版本放入 `BepInEx\plugins`。
-4. 将 [`SprocketDepth.dll`](https://github.com/furryaxw/SprocketDepth/releases/latest) `v1.0.0` 或更高版本放入 `BepInEx\plugins`。
+## Installation
 
-当前目标环境为 Sprocket `0.2.55.5`、BepInEx `6.0.0-be.788`（IL2CPP、.NET 6）和 Windows D3D11。
+1. Install BepInEx 6 (IL2CPP, .NET 6) matching your game version.
+2. Place `SprocketLaserRangefinder.dll` into `BepInEx\plugins`.
+3. Place [`SprocketModAPI.dll`](https://github.com/furryaxw/SprocketModAPI/releases/latest) `v1.0.0` or later into `BepInEx\plugins`.
+4. Place [`SprocketDepth.dll`](https://github.com/furryaxw/SprocketDepth/releases/latest) `v1.0.0` or later into `BepInEx\plugins`.
 
-## 构建
+The current target environment is Sprocket `0.2.55.5`, BepInEx `6.0.0-be.788`
+(IL2CPP, .NET 6), and Windows D3D11.
 
-项目目标框架为 .NET 6，并引用本地 BepInEx core/interop 程序集以及 `SprocketModAPI.dll`、`SprocketDepth.dll`。默认目录布局为：
+## Building
+
+The project targets .NET 6 and references the local BepInEx core/interop assemblies as
+well as `SprocketModAPI.dll` and `SprocketDepth.dll`. The default directory layout is:
 
 ```text
 G:\Sprocket0.2.55.5\
@@ -48,13 +62,18 @@ dotnet build .\SprocketLaserRangefinder\SprocketLaserRangefinder.csproj `
   --configuration Release
 ```
 
-默认构建会将 DLL 部署到 `BepInEx\plugins`。使用 `-p:SkipModDeploy=true` 可以只生成 DLL；仓库位于其他位置时可通过 `-p:SprocketGameRoot="G:\Sprocket0.2.55.5"` 指定游戏根目录。
+By default the build deploys the DLL into `BepInEx\plugins`. Use `-p:SkipModDeploy=true`
+to build the DLL only; if the repository lives elsewhere, point at the game root with
+`-p:SprocketGameRoot="G:\Sprocket0.2.55.5"`.
 
-## 当前限制
+## Current limitations
 
-- 当前版本为 Prototype，尚未完成所有车辆和距离下的游戏内验收。
-- 不保存或跟踪世界坐标，不显示预计落点。
-- 没有横向稳定器的车辆可能无法稳定执行载车运动补偿产生的横向修正，此时可按 `L` 关闭补偿。
+- This version is a Prototype; in-game acceptance has not been completed for all vehicles
+  and ranges.
+- Does not save or track world coordinates and does not display a predicted point of impact.
+- Vehicles without a traverse stabilizer may not be able to apply the traverse correction
+  produced by vehicle motion compensation reliably; in that case you can press `L` to turn
+  compensation off.
 
 ## License
 
