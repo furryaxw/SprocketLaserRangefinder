@@ -24,8 +24,8 @@
 
 1. 安装与游戏版本匹配的 BepInEx 6（IL2CPP，.NET 6）。
 2. 将 `SprocketLaserRangefinder.dll` 放入 `BepInEx\plugins`。
-3. 将 [`SprocketModAPI.dll`](https://github.com/furryaxw/SprocketModAPI/releases/latest) `v0.1.0` 或更高版本放入 `BepInEx\plugins`。
-4. 将 [`SprocketDepth.dll`](https://github.com/furryaxw/SprocketDepth/releases/latest) `v0.1.1` 或更高版本放入 `BepInEx\plugins`。
+3. 将 [`SprocketModAPI.dll`](https://github.com/furryaxw/SprocketModAPI/releases/latest) `v1.0.0` 或更高版本放入 `BepInEx\plugins`。
+4. 将 [`SprocketDepth.dll`](https://github.com/furryaxw/SprocketDepth/releases/latest) `v1.0.0` 或更高版本放入 `BepInEx\plugins`。
 
 当前目标环境为 Sprocket `0.2.55.5`、BepInEx `6.0.0-be.788`（IL2CPP、.NET 6）和 Windows D3D11。
 
