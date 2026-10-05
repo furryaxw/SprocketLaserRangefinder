@@ -38,7 +38,7 @@ namespace SprocketLaserRangefinder
     {
         internal const string PluginGuid = "furryaxw.sprocket-laser-rangefinder";
         internal const string PluginName = "Sprocket Laser Rangefinder";
-        internal const string PluginVersion = "0.1.4";
+        internal const string PluginVersion = "1.0.0";
 
         private const string DepthPassName =
             "Sprocket Laser Rangefinder Depth Sampler";
