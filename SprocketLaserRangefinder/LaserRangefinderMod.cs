@@ -5,6 +5,7 @@ using BepInEx;
 using BepInEx.Unity.IL2CPP;
 using HarmonyLib;
 using Il2CppInterop.Runtime;
+using Il2CppInterop.Runtime.Attributes;
 using Sprocket;
 using Sprocket.DamageModelling;
 using Sprocket.Gameplay.VehicleControl;
@@ -1027,6 +1028,8 @@ namespace SprocketLaserRangefinder
         {
         }
 
+        // 带托管参数的成员注册不进 il2cpp 域，只从托管侧调用。
+        [HideFromIl2Cpp]
         public void Configure(
             Action update,
             Action gui,
