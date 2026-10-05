@@ -1,6 +1,6 @@
 # SprocketLaserRangefinder
 
-适用于《Sprocket》的 MelonLoader 激光测距与自动装表原型模组。它读取炮镜准星处的距离和当前火炮数据，计算低伸弹道，并通过游戏原生火炮控制链抬高炮管。
+适用于《Sprocket》的 BepInEx 6（IL2CPP）激光测距与自动装表原型模组。它读取炮镜准星处的距离和当前火炮数据，计算低伸弹道，并通过游戏原生火炮控制链抬高炮管。
 
 ## 功能
 
@@ -22,23 +22,25 @@
 
 ## 安装
 
-1. 安装与游戏版本匹配的 MelonLoader。
-2. 将 `SprocketLaserRangefinder.dll` 放入游戏根目录的 `Mods` 文件夹。
-3. 将 [`SprocketModAPI.dll`](https://github.com/furryaxw/SprocketModAPI/releases/latest) `v0.1.0` 或更高版本放入游戏根目录的 `Mods` 文件夹。
-4. 将 [`SprocketDepth.dll`](https://github.com/furryaxw/SprocketDepth/releases/latest) `v0.1.1` 或更高版本放入游戏根目录的 `UserLibs` 文件夹。
+1. 安装与游戏版本匹配的 BepInEx 6（IL2CPP，.NET 6）。
+2. 将 `SprocketLaserRangefinder.dll` 放入 `BepInEx\plugins`。
+3. 将 [`SprocketModAPI.dll`](https://github.com/furryaxw/SprocketModAPI/releases/latest) `v0.1.0` 或更高版本放入 `BepInEx\plugins`。
+4. 将 [`SprocketDepth.dll`](https://github.com/furryaxw/SprocketDepth/releases/latest) `v0.1.1` 或更高版本放入 `BepInEx\plugins`。
 
-当前目标环境为 Sprocket `0.2.53.2`、MelonLoader `0.7.2/net6` 和 Windows D3D11。
+当前目标环境为 Sprocket `0.2.55.5`、BepInEx `6.0.0-be.788`（IL2CPP、.NET 6）和 Windows D3D11。
 
 ## 构建
 
-项目目标框架为 .NET 6，并引用本地 Sprocket MelonLoader/IL2CPP 程序集和 `SprocketDepth.dll`。默认目录布局为：
+项目目标框架为 .NET 6，并引用本地 BepInEx core/interop 程序集以及 `SprocketModAPI.dll`、`SprocketDepth.dll`。默认目录布局为：
 
 ```text
-G:\Sprocket\
-├── MelonLoader\
-├── Mods\SprocketModAPI.dll
-├── UserLibs\SprocketDepth.dll
-└── mod\SprocketLaserRangefinder\
+G:\Sprocket0.2.55.5\
+├── BepInEx\
+│   ├── core\
+│   ├── interop\
+│   └── plugins\SprocketModAPI.dll
+│                SprocketDepth.dll
+└── mods\SprocketLaserRangefinder\
 ```
 
 ```powershell
@@ -46,7 +48,7 @@ dotnet build .\SprocketLaserRangefinder\SprocketLaserRangefinder.csproj `
   --configuration Release
 ```
 
-默认构建会将 DLL 部署到 `Mods`。使用 `-p:SkipModDeploy=true` 可以只生成 DLL；仓库位于其他位置时可通过 `-p:SprocketGameRoot="G:\Sprocket"` 指定游戏根目录。
+默认构建会将 DLL 部署到 `BepInEx\plugins`。使用 `-p:SkipModDeploy=true` 可以只生成 DLL；仓库位于其他位置时可通过 `-p:SprocketGameRoot="G:\Sprocket0.2.55.5"` 指定游戏根目录。
 
 ## 当前限制
 

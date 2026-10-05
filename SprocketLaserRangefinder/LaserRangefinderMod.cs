@@ -1,30 +1,25 @@
 using System;
 using System.Reflection;
 using System.Text;
+using BepInEx;
+using BepInEx.Unity.IL2CPP;
 using HarmonyLib;
 using Il2CppInterop.Runtime;
-using Il2CppSprocket;
-using Il2CppSprocket.DamageModelling;
-using Il2CppSprocket.Gameplay.VehicleControl;
-using Il2CppSprocket.VehicleControl;
-using Il2CppSprocket.Vehicles.Cannons;
-using Il2CppSprocket.Vehicles.CrewSystems;
-using Il2CppSprocket.Vehicles.Weapons;
-using Il2CppSprocket.Vehicles.Weapons.Cannons;
-using MelonLoader;
+using Sprocket;
+using Sprocket.DamageModelling;
+using Sprocket.Gameplay.VehicleControl;
+using Sprocket.VehicleControl;
+using Sprocket.Vehicles.Cannons;
+using Sprocket.Vehicles.CrewSystems;
+using Sprocket.Vehicles.Weapons;
+using Sprocket.Vehicles.Weapons.Cannons;
 using SprocketDepth;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.SceneManagement;
 using SprocketModAPI;
 
-[assembly: MelonInfo(
-    typeof(SprocketLaserRangefinder.SprocketLaserRangefinderMod),
-    "Sprocket Laser Rangefinder",
-    "0.1.4",
-    "furryAxw")]
-[assembly: MelonGame("HD", "Sprocket")]
-[assembly: MelonAdditionalDependencies("SprocketModAPI", "SprocketDepth")]
 [assembly: AssemblyMetadata("Sprocket.Mod.Id", "furryaxw.sprocket-laser-rangefinder")]
 [assembly: AssemblyMetadata("Sprocket.Mod.DisplayName", "Sprocket Laser Rangefinder")]
 [assembly: AssemblyMetadata("Sprocket.Mod.Description", "Laser rangefinder and automatic ballistic sight for Sprocket.")]
@@ -35,8 +30,15 @@ using SprocketModAPI;
 
 namespace SprocketLaserRangefinder
 {
-    public sealed class SprocketLaserRangefinderMod : MelonMod
+    [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
+    [BepInDependency("furryaxw.sprocket-mod-api")]
+    [BepInDependency("furryaxw.sprocket-depth")]
+    public sealed class SprocketLaserRangefinderMod : BasePlugin
     {
+        internal const string PluginGuid = "furryaxw.sprocket-laser-rangefinder";
+        internal const string PluginName = "Sprocket Laser Rangefinder";
+        internal const string PluginVersion = "0.1.4";
+
         private const string DepthPassName =
             "Sprocket Laser Rangefinder Depth Sampler";
         private const float MinimumRangeMeters = 20.0f;
@@ -101,18 +103,23 @@ namespace SprocketLaserRangefinder
         private IInputActionHandle? clearAction;
         private IInputActionHandle? leadAction;
 
-        public override void OnInitializeMelon()
+        public override void Load()
         {
             Instance = this;
+            // BepInEx 的 BasePlugin 没有逐帧/IMGUI/场景回调，注入组件承担这三类回调。
+            AddComponent<RangefinderRuntimeBehaviour>().Configure(
+                RuntimeUpdate,
+                DrawHud,
+                OnActiveSceneChanged);
             try
             {
-                harmony = new HarmonyLib.Harmony(
-                    "furryAxw.SprocketLaserRangefinder");
-                harmony.PatchAll(typeof(SprocketLaserRangefinderMod).Assembly);
+                harmony = Harmony.CreateAndPatchAll(
+                    typeof(SprocketLaserRangefinderMod).Assembly,
+                    PluginGuid);
             }
             catch (Exception exception)
             {
-                LoggerInstance.Error(
+                Log.LogError(
                     $"[SLRF] Harmony patch registration failed: {exception}");
                 harmony = null;
                 Instance = null;
@@ -134,11 +141,11 @@ namespace SprocketLaserRangefinder
                         },
                     });
                     leadCompensationEnabled = configPage.GetBool("lead-compensation");
-                    LoggerInstance.Msg($"[SLRF] config page registered entries={configPage.Snapshot.Entries.Count}");
+                    Log.LogInfo($"[SLRF] config page registered entries={configPage.Snapshot.Entries.Count}");
                 }
                 catch (Exception exception)
                 {
-                    LoggerInstance.Warning($"[SLRF] config registration failed: {exception.Message}");
+                    Log.LogWarning($"[SLRF] config registration failed: {exception.Message}");
                     configPage = null;
                 }
             }
@@ -150,25 +157,25 @@ namespace SprocketLaserRangefinder
                 clearAction = input.RegisterAction(new ModActionDefinition { ActionId = "clear", DisplayName = "Clear range", DefaultPrimary = new KeyChord("<Keyboard>/z"), Contexts = InputContextMask.Gameplay, Gate = HasActiveRangeState });
                 leadAction = input.RegisterAction(new ModActionDefinition { ActionId = "lead", DisplayName = "Toggle lead", DefaultPrimary = new KeyChord("<Keyboard>/l"), Contexts = InputContextMask.Gameplay, Gate = IsScopeActive });
                 rangeAction.Pressed += RequestRange;
-                clearAction.Pressed += () => { ClearRange("Range cleared manually"); LoggerInstance.Msg("[SLRF] range-cleared manual"); };
+                clearAction.Pressed += () => { ClearRange("Range cleared manually"); Log.LogInfo("[SLRF] range-cleared manual"); };
                 leadAction.Pressed += ToggleLeadCompensation;
                 RefreshRangeHint();
             }
-            LoggerInstance.Msg(
-                $"[SLRF] {Info.Name} {Info.Version} initialized.");
-            LoggerInstance.Msg(
+            Log.LogInfo(
+                $"[SLRF] {PluginName} {PluginVersion} initialized.");
+            Log.LogInfo(
                 "[SLRF] depth-only scalar range; no ranged world point; " +
                 "ballistics=live cannon data + native curves + semi-implicit Euler");
         }
 
-        public override void OnUpdate()
+        private void RuntimeUpdate()
         {
             RefreshControllerAndBindings();
 
             TryRefreshCurrentCannon();
         }
 
-        public override void OnGUI()
+        private void DrawHud()
         {
             if (!IsScopeActive())
                 return;
@@ -193,7 +200,7 @@ namespace SprocketLaserRangefinder
                 hudLabelStyle);
         }
 
-        public override void OnSceneWasLoaded(int buildIndex, string sceneName)
+        private void OnActiveSceneChanged()
         {
             ReleaseDepthBinding();
             controller = null;
@@ -206,7 +213,7 @@ namespace SprocketLaserRangefinder
             nextControllerRefreshTime = 0.0f;
         }
 
-        public override void OnDeinitializeMelon()
+        public override bool Unload()
         {
             ReleaseDepthBinding();
             depthRenderer?.Dispose();
@@ -215,6 +222,7 @@ namespace SprocketLaserRangefinder
             harmony = null;
             rangeAction?.Dispose(); clearAction?.Dispose(); leadAction?.Dispose();
             Instance = null;
+            return true;
         }
 
         internal bool ExecuteOwnedDepthPass(
@@ -253,7 +261,7 @@ namespace SprocketLaserRangefinder
             else
             {
                 lastStatus = "Depth record failed";
-                LoggerInstance.Warning(
+                Log.LogWarning(
                     $"[SLRF] depth-record-failed {depthRenderer.LastError}");
             }
 
@@ -387,13 +395,17 @@ namespace SprocketLaserRangefinder
             var scopeControl = controller?.ScopeControl;
             bool scopeActive = scopeControl != null && scopeControl.Scoped;
             if (scopeActive)
-                desiredCamera = scopeControl!.Camera;
+            {
+                // 0.2.55.5 的 IReadOnlyScopeController 不再暴露 Camera；
+                // 炮镜生效时 VehicleController 的活动相机就是炮镜相机。
+                desiredCamera = controller!.ActiveCamera;
+            }
 
             if (!scopeActive || desiredCamera == null)
             {
                 if (scopeWasActive)
                 {
-                    LoggerInstance.Msg("[SLRF] range-retained scope-exited");
+                    Log.LogInfo("[SLRF] range-retained scope-exited");
                 }
 
                 scopeWasActive = false;
@@ -450,12 +462,12 @@ namespace SprocketLaserRangefinder
                 depthPrimed = false;
                 depthFrameMetadataValid = false;
                 depthPassObject.SetActive(true);
-                LoggerInstance.Msg(
+                Log.LogInfo(
                     $"[SLRF] depth-bound camera={BuildTransformPath(camera.transform)}");
             }
             catch (Exception exception)
             {
-                LoggerInstance.Error($"[SLRF] depth-bind-failed {exception}");
+                Log.LogError($"[SLRF] depth-bind-failed {exception}");
                 ReleaseDepthBinding();
             }
         }
@@ -505,7 +517,7 @@ namespace SprocketLaserRangefinder
             lastStatus = depthPrimed
                 ? "Ranging: waiting for depth"
                 : "Ranging: priming depth";
-            LoggerInstance.Msg(
+            Log.LogInfo(
                 $"[SLRF] range-request generation={rangeRequestGeneration}");
         }
 
@@ -518,7 +530,7 @@ namespace SprocketLaserRangefinder
             if (controller == null || controller.ScopeControl == null)
                 return false;
 
-            Camera? camera = boundCamera ?? controller.ScopeControl.Camera;
+            Camera? camera = boundCamera ?? controller.ActiveCamera;
             if (camera == null)
                 return false;
 
@@ -570,7 +582,7 @@ namespace SprocketLaserRangefinder
                     if (!stableFrameWaitLogged)
                     {
                         stableFrameWaitLogged = true;
-                        LoggerInstance.Msg(
+                        Log.LogInfo(
                             $"[SLRF] depth-wait-frame-rotation " +
                             $"rotation={rotation:F3}deg");
                     }
@@ -613,7 +625,7 @@ namespace SprocketLaserRangefinder
             {
                 depthReadbackInFlight = false;
                 lastStatus = "Depth readback request failed";
-                LoggerInstance.Error(
+                Log.LogError(
                     $"[SLRF] depth-readback-request-failed {exception}");
             }
         }
@@ -627,7 +639,7 @@ namespace SprocketLaserRangefinder
                     depthReadbackRangeGeneration != rangeRequestGeneration ||
                     !IsScopeActive())
                 {
-                    LoggerInstance.Msg(
+                    Log.LogInfo(
                         "[SLRF] stale depth readback discarded");
                     return;
                 }
@@ -635,7 +647,7 @@ namespace SprocketLaserRangefinder
                 if (request.hasError)
                 {
                     lastStatus = "Depth readback failed";
-                    LoggerInstance.Warning("[SLRF] depth-readback-error");
+                    Log.LogWarning("[SLRF] depth-readback-error");
                     return;
                 }
 
@@ -652,7 +664,7 @@ namespace SprocketLaserRangefinder
                     rayDistance < MinimumRangeMeters)
                 {
                     lastStatus = $"Target closer than {MinimumRangeMeters:F0} m";
-                    LoggerInstance.Msg(
+                    Log.LogInfo(
                         $"[SLRF] depth=too-close distance={rayDistance:F2}m " +
                         $"minimum={MinimumRangeMeters:F0}m");
                     return;
@@ -665,20 +677,20 @@ namespace SprocketLaserRangefinder
                 if (!valid)
                 {
                     lastStatus = "No depth return";
-                    LoggerInstance.Msg(
+                    Log.LogInfo(
                         $"[SLRF] depth=no-return q={normalizedDepthValue:F6}");
                     return;
                 }
 
                 CommitRange(rayDistance);
-                LoggerInstance.Msg(
+                Log.LogInfo(
                     $"[SLRF] ranged depth={rayDistance:F2}m " +
                     $"q={normalizedDepthValue:F6}");
             }
             catch (Exception exception)
             {
                 lastStatus = "Depth callback failed";
-                LoggerInstance.Error($"[SLRF] depth-callback-failed {exception}");
+                Log.LogError($"[SLRF] depth-callback-failed {exception}");
             }
         }
 
@@ -780,7 +792,7 @@ namespace SprocketLaserRangefinder
             if (lastLoggedSolutionGeneration != rangeRequestGeneration)
             {
                 lastLoggedSolutionGeneration = rangeRequestGeneration;
-                LoggerInstance.Msg(
+                Log.LogInfo(
                     $"[SLRF] table range={rangedDistance:F2}m " +
                     $"correction={solution.ElevationCorrectionDegrees:+0.000;-0.000;0.000}deg " +
                     $"tof={solution.TimeOfFlight:F3}s " +
@@ -905,7 +917,7 @@ namespace SprocketLaserRangefinder
             lastStatus = leadCompensationEnabled
                 ? "Vehicle-motion lead enabled"
                 : "Vehicle-motion lead disabled";
-            LoggerInstance.Msg(
+            Log.LogInfo(
                 $"[SLRF] lead-compensation=" +
                 $"{(leadCompensationEnabled ? "on" : "off")}");
         }
@@ -1000,6 +1012,44 @@ namespace SprocketLaserRangefinder
             }
             return path;
         }
+    }
+
+    // BepInEx 没有 OnUpdate / OnGUI / 场景回调；这个注入组件逐帧派发这三类回调。
+    // 活动场景句柄变化时通知宿主，等价于原来的 OnSceneWasLoaded。
+    internal sealed class RangefinderRuntimeBehaviour : MonoBehaviour
+    {
+        private Action? onUpdate;
+        private Action? onGui;
+        private Action? onSceneChanged;
+        private int lastSceneHandle = int.MinValue;
+
+        public RangefinderRuntimeBehaviour(IntPtr ptr) : base(ptr)
+        {
+        }
+
+        public void Configure(
+            Action update,
+            Action gui,
+            Action sceneChanged)
+        {
+            onUpdate = update;
+            onGui = gui;
+            onSceneChanged = sceneChanged;
+        }
+
+        private void Update()
+        {
+            Scene active = SceneManager.GetActiveScene();
+            if (active.handle != lastSceneHandle)
+            {
+                lastSceneHandle = active.handle;
+                onSceneChanged?.Invoke();
+            }
+
+            onUpdate?.Invoke();
+        }
+
+        private void OnGUI() => onGui?.Invoke();
     }
 
     [HarmonyPatch(typeof(FullScreenCustomPass), nameof(FullScreenCustomPass.Execute))]
